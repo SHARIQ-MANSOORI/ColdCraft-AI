@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema({  // user data schema
         type:Date
     }
 
-})
+});
 
 
 // when user signUp -- before saving info into db pass get hash
@@ -42,8 +42,8 @@ const userSchema = new mongoose.Schema({  // user data schema
 //     │
 //     ▼
 // Now save the user
-userSchema.pre('save',async function(next){
-    if(!this.isModified('password')){
+userSchema.pre('save',async function(){
+    if(!this.isModified('password')){ // password mai koi change hua hai ya nauh
         return                               
 
     }                                               // Arrow functions (=>) don't have their own this, so you should not use them here.

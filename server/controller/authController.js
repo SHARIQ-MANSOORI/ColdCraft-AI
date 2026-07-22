@@ -9,7 +9,7 @@ const  generateAuthToken = (user) => {
   }
 
 
-exports.registerUser = async (req,res , next)=>{
+exports.registerUser = async (req,res,next)=>{
 
      try {
         
@@ -70,6 +70,9 @@ exports.registerUser = async (req,res , next)=>{
       }catch(error){
         console.log("Error-OTP",error)
       }
+      
+
+
      
        return res.status(200).json({message:"User Register Successfully ",user:{
         username:user.username , email:user.email , isVerified:user.isVerified // need change
@@ -100,9 +103,11 @@ module.exports.verifyOTP = async (req,res)=>{
         user.isVerified = true;
         user.otp = undefined;
         user.otpExpiry = undefined;
-        await user.save();
+        await user.save(); // finally save the user after verification
+
         const token = generateAuthToken(user); // generate token for user
         return res.status(200).json({token , message:"Otp verified successfully",user});
+
     } catch (error) {
         console.log("Error-verifyOTP",error)
     }
@@ -123,7 +128,8 @@ module.exports.login = async (req,res)=>{
         if(!isMatch){
             return res.status(400).json({message:"Invalid email or password"})
         }
-        return res.status(200).json({message:"Login successful",user});
+        const token = generateAuthToken(user); // generate token for user
+        return res.status(200).json({token, message:"Login successful",user});
     } catch (error) {
         console.log("Error-login",error)
     }
