@@ -4,5 +4,6 @@ const aiController = require('../controller/aiController');
 const authMiddleware = require('../middleware/authMiddleware');
 
 router.post('/generate-email',authMiddleware,aiController.generateEmail); // this route is protected by authMiddleware, only logged in users can access it
+router.get('/history', authMiddleware , aiController.getHistory); // this route is protected by authMiddleware, only logged in users can access it
 
 module.exports = router;
