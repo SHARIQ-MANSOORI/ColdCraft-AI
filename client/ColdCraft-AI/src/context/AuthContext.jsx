@@ -1,5 +1,6 @@
 import React , {useEffect} from "react";
-const AuthContext = React.createContext();
+import { useContext } from "react";
+export const AuthContext = React.createContext();
 
 // Context Api for Authentication
 
@@ -39,5 +40,9 @@ export const AuthProvider = ({ children }) => {
          </AuthContext.Provider>
     )
 
+};
+
+export const useAuth = () => {
+    return useContext(AuthContext);
 };
 
