@@ -1,0 +1,33 @@
+{
+  "name": "coldcraft-ai-mono",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/SHARIQ-MANSOORI/ColdCraft-AI#readme",
+  "bugs": {
+    "url": "https://github.com/SHARIQ-MANSOORI/ColdCraft-AI/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SHARIQ-MANSOORI/ColdCraft-AI.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "install-all": "npm install && npm install --prefix server && npm install --prefix client/ColdCraft-AI",
+
+    "start": "concurrently \"npm run start:server\" \"npm run start:client\"",
+    "start:server": "npm --prefix server run start",
+    "start:client": "npm --prefix client/ColdCraft-AI run preview",
+    
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client/ColdCraft-AI run dev",
+
+    "build": "npm --prefix client/ColdCraft-AI run build"
+  },
+  "dependencies": {
+    "concurrently": "^10.0.4"
+  }
+}
