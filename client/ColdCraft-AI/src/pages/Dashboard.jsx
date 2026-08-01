@@ -3,6 +3,9 @@ import { toast } from 'react-hot-toast';
 import api from '../utils/api';
 import { ClipboardDocumentIcon, CheckIcon, AdjustmentsHorizontalIcon, PlusIcon, PaperAirplaneIcon, EnvelopeIcon } from '@heroicons/react/24/outline';
 import { useCampaign } from '../context/CampaignContext';
+import DocumentUploader from '../components/DocumentUploader';
+import MissingAttachmentModal from '../components/MissingAttachmentModal';
+import { detectMissingAttachment } from '../utils/attachmentDetector';
 
 const Dashboard = () => {
     const { selectedCampaign, startNewCampaign, addGeneratedCampaign } = useCampaign();
@@ -11,6 +14,8 @@ const Dashboard = () => {
     const [tone, setTone] = useState('Professional');
     const [length, setLength] = useState('Medium');
     const [recipientEmail, setRecipientEmail] = useState('');
+    const [uploadedFile, setUploadedFile] = useState(null);
+    const [showAttachmentModal, setShowAttachmentModal] = useState(false);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [copied, setCopied] = useState('');
@@ -36,19 +41,27 @@ const Dashboard = () => {
             setPrompt(selectedCampaign.prompt || '');
             setTone(selectedCampaign.tone || 'Professional');
             setLength(selectedCampaign.length || 'Medium');
+            setUploadedFile(null);
         } else {
             setResult(null);
             setPrompt('');
+            setUploadedFile(null);
         }
     }, [selectedCampaign]);
 
-    const handleGenerate = async (e) => {
-        e.preventDefault();
-        if (!prompt.trim()) return;
-
+    const executeGeneration = async (overrideSkipAttachmentCheck = false) => {
         setLoading(true);
         try {
-            const { data } = await api.post('/ai/generate-email', { prompt, tone, length });
+            const formData = new FormData();
+            formData.append('prompt', prompt.trim());
+            formData.append('tone', tone);
+            formData.append('length', length);
+            if (uploadedFile) {
+                formData.append('document', uploadedFile);
+            }
+
+            const { data } = await api.post('/ai/generate-email', formData);
+
             const generatedItem = data.data || data;
             setResult(generatedItem);
             addGeneratedCampaign(generatedItem);
@@ -57,7 +70,26 @@ const Dashboard = () => {
             toast.error(error.response?.data?.message || 'Failed to generate. Please try again.');
         } finally {
             setLoading(false);
+            setShowAttachmentModal(false);
         }
+    };
+
+    const handleFormSubmit = async (e) => {
+        e.preventDefault();
+
+        // Validation: must have either a prompt OR an uploaded file
+        if (!prompt.trim() && !uploadedFile) {
+            toast.error('Please provide a text prompt or attach a resume/document.');
+            return;
+        }
+
+        // Detect missing attachment phrases if user mentioned attachment but no file is present
+        if (!uploadedFile && detectMissingAttachment(prompt)) {
+            setShowAttachmentModal(true);
+            return;
+        }
+
+        executeGeneration();
     };
 
     const copyToClipboard = (text, type) => {
@@ -115,6 +147,14 @@ const Dashboard = () => {
 
     return (
         <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 h-[calc(100vh-8rem)]">
+            {/* Missing Attachment Warning Modal */}
+            <MissingAttachmentModal
+                isOpen={showAttachmentModal}
+                onUploadClick={() => setShowAttachmentModal(false)}
+                onContinueAnyway={() => executeGeneration(true)}
+                onClose={() => setShowAttachmentModal(false)}
+            />
+
             {/* Input Section */}
             <div className="w-full lg:w-1/3 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-y-auto">
                 <div className="flex justify-between items-center mb-4">
@@ -125,7 +165,10 @@ const Dashboard = () => {
                     {selectedCampaign && (
                         <button
                             type="button"
-                            onClick={startNewCampaign}
+                            onClick={() => {
+                                startNewCampaign();
+                                setUploadedFile(null);
+                            }}
                             className="text-xs text-blue-600 hover:underline font-semibold"
                         >
                             + Clear & New
@@ -133,7 +176,14 @@ const Dashboard = () => {
                     )}
                 </div>
                 
-                <form onSubmit={handleGenerate} className="flex-1 flex flex-col space-y-4">
+                <form onSubmit={handleFormSubmit} className="flex-1 flex flex-col space-y-4">
+                    {/* Document Upload Component */}
+                    <DocumentUploader
+                        file={uploadedFile}
+                        onFileSelect={(file) => setUploadedFile(file)}
+                        onFileRemove={() => setUploadedFile(null)}
+                    />
+
                     {/* Recipient Email Input */}
                     <div>
                         <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 flex items-center gap-1">
@@ -151,12 +201,14 @@ const Dashboard = () => {
 
                     {/* Prompt Textarea */}
                     <div>
-                        <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 block">Context / Prompt</label>
+                        <label className="text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5 block">
+                            Context / Prompt {uploadedFile && <span className="text-[10px] text-slate-400 font-normal">(Optional when document uploaded)</span>}
+                        </label>
                         <textarea
                             value={prompt}
                             onChange={(e) => setPrompt(e.target.value)}
-                            className="w-full h-32 border border-slate-300 rounded-lg p-3.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow resize-none text-slate-800 placeholder-slate-400"
-                            placeholder="e.g. Write a cold email to a marketing director at a SaaS company offering our AI-driven analytics tool that increases retention by 20%..."
+                            className="w-full h-28 border border-slate-300 rounded-lg p-3.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow resize-none text-slate-800 placeholder-slate-400"
+                            placeholder="e.g. Target a VP of Sales offering AI analytics, or leave blank to generate solely from your uploaded document..."
                         />
                     </div>
 
@@ -206,7 +258,7 @@ const Dashboard = () => {
 
                     <button
                         type="submit"
-                        disabled={loading || !prompt.trim()}
+                        disabled={loading || (!prompt.trim() && !uploadedFile)}
                         className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center text-sm shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         {loading ? (
@@ -215,7 +267,7 @@ const Dashboard = () => {
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>
-                                Generating ({tone} • {length})...
+                                Parsing & Generating ({tone} • {length})...
                             </span>
                         ) : `Generate (${tone} • ${length})`}
                     </button>
@@ -246,7 +298,10 @@ const Dashboard = () => {
                                     className="border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-44 sm:w-52"
                                 />
                                 <button
-                                    onClick={startNewCampaign}
+                                    onClick={() => {
+                                        startNewCampaign();
+                                        setUploadedFile(null);
+                                    }}
                                     className="text-xs px-3 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold transition-colors flex items-center gap-1 shadow-sm shrink-0"
                                 >
                                     <PlusIcon className="w-3.5 h-3.5" />
@@ -279,7 +334,7 @@ const Dashboard = () => {
                         <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 border border-blue-100">
                             <ClipboardDocumentIcon className="w-8 h-8 text-blue-500" />
                         </div>
-                        <p className="text-sm font-semibold text-slate-700">Select Tone & Length, enter your prompt, and generate outputs.</p>
+                        <p className="text-sm font-semibold text-slate-700">Upload a Document or enter a Prompt, select Tone & Length, and generate.</p>
                         <p className="text-xs text-slate-400 mt-1">Or pick a past campaign from the <b>Sidebar</b> on the left to view or edit.</p>
                     </div>
                 )}

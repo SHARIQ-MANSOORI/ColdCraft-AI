@@ -1,56 +1,87 @@
 const axios = require('axios');
-const EmailHistory = require('../models/emailHistory')
+const EmailHistory = require('../models/emailHistory');
 const getSystemPrompt = require('../prompts/systemPrompt');
+const documentParserService = require('../services/documentParserService');
+const resumePromptService = require('../services/resumePromptService');
 
-exports.generateEmail = async (req,res)=>{
-    const { prompt, tone = 'Professional', length = 'Medium' } = req.body;
-    if(!prompt){
-       return res.status(400).json({message:"Prompt is required!"});
+exports.generateEmail = async (req, res) => {
+    const { prompt = '', tone = 'Professional', length = 'Medium' } = req.body;
+    const uploadedFile = req.file;
+
+    // Validate that at least a prompt OR a document file is provided
+    if ((!prompt || prompt.trim().length === 0) && !uploadedFile) {
+        return res.status(400).json({ message: 'Please provide a prompt or upload a resume/document.' });
     }
-    
-    if(prompt.trim().length === 0){
-        return res.status(400).json({message:"Prompt cannot be empty!"});
+
+    if (prompt && prompt.length > 3000) {
+        return res.status(400).json({ message: 'Prompt should not exceed 3000 characters.' });
     }
-    if(prompt.length > 500){
-        return res.status(400).json({message:"Prompt should not exceed 500 characters!"});
-    }
-                                            
-    try {                                            
+
+    try {
+        let extractedDocumentText = '';
+
+        // Extract text if a document file was uploaded
+        if (uploadedFile) {
+            extractedDocumentText = await documentParserService.parseDocument(uploadedFile);
+        }
+
+        // Build enriched AI prompt combining user prompt & document text
+        const finalPrompt = resumePromptService.buildEnrichedPrompt(prompt, extractedDocumentText);
+
         const activeSystemPrompt = getSystemPrompt(tone, length);
 
-        const response = await axios.post('https://api.groq.com/openai/v1/chat/completions',{
+        const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
             model: 'llama-3.3-70b-versatile',
-            messages:[
-                {role:'system' , content:activeSystemPrompt},
-                {role:'user' , content:prompt}
+            messages: [
+                { role: 'system', content: activeSystemPrompt },
+                { role: 'user', content: finalPrompt }
             ],
-            max_tokens:1000,
-            temperature:0.7
-        },{
-            headers:{
-                'Authorization':`Bearer ${process.env.GROQ_API_KEY}`,
-                'Content-Type':'application/json'
+            max_tokens: 1000,
+            temperature: 0.7
+        }, {
+            headers: {
+                'Authorization': `Bearer ${process.env.GROQ_API_KEY}`,
+                'Content-Type': 'application/json'
             },
-            timeout:30000
+            timeout: 45000
         });
 
-        const aiResponse = response.data.choices[0].message.content;
+        const rawAiResponse = response.data.choices[0].message.content;
+
+        // Clean potential markdown wrappers (```json ... ```) from LLM output
+        const cleanJsonResponse = (text) => {
+            if (!text) return '';
+            let cleaned = text.trim();
+            cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+            const firstBrace = cleaned.indexOf('{');
+            const lastBrace = cleaned.lastIndexOf('}');
+            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+            }
+            return cleaned;
+        };
+
+        const cleanedJson = cleanJsonResponse(rawAiResponse);
 
         let parsedResponse;
-
-         try {
-            parsedResponse = JSON.parse(aiResponse);
+        try {
+            parsedResponse = JSON.parse(cleanedJson);
         } catch (err) {
+            console.error('Failed to parse AI response JSON:', rawAiResponse);
             return res.status(500).json({
-                message: "Invalid response received from AI."
+                message: 'Invalid JSON format received from AI.',
+                rawResponse: rawAiResponse
             });
         }
 
+        const { subject, emailBody, linkedInDM, followUpEmail } = parsedResponse;
 
-        const {subject , emailBody , linkedInDM , followUpEmail} = parsedResponse;
+        // Display summary prompt in history
+        const savedPrompt = prompt.trim() || (uploadedFile ? `[Resume Upload: ${uploadedFile.originalname}]` : 'AI Email Generation');
+
         const emailHistory = await EmailHistory.create({
-            user:req.user._id,
-            prompt,
+            user: req.user._id,
+            prompt: savedPrompt,
             tone,
             length,
             subject,
@@ -59,21 +90,20 @@ exports.generateEmail = async (req,res)=>{
             followUpEmail
         });
 
-       return res.status(200).json({
-        success: true,
-        message: "Email generated successfully.",
-        data: emailHistory})
+        return res.status(200).json({
+            success: true,
+            message: 'Email generated successfully.',
+            data: emailHistory
+        });
 
     } catch (error) {
-        console.log('Error Gneratiing email:',error.message);
+        console.error('Error generating email:', error.message);
         return res.status(500).json({
-            message:'Error generation email',
-            error:error.message
-        })
-        
+            message: 'Error generating email',
+            error: error.message
+        });
     }
-
-}
+};
 
 
 exports.getHistory = async (req,res)=>{
