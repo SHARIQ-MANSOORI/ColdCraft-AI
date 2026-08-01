@@ -27,8 +27,16 @@ const emailHistorySchema = new mongoose.Schema({
     followUpEmail:{
         type:String,
         required:true
+    },
+    tone:{
+        type:String,
+        default:'Professional'
+    },
+    length:{
+        type:String,
+        default:'Medium'
     }
 } , {timestamps:true});
 
-const EmailHistory = mongoose.model('EmailHistroy', emailHistorySchema);
+const EmailHistory = mongoose.model('EmailHistory', emailHistorySchema);
 module.exports = EmailHistory;

@@ -4,12 +4,17 @@ const User = require('../models/User');
 
 const authMiddleware = async (req,res,next)=>{
     try {
-        const token = req.header('Authorization').replace('Bearer ',''); // get token from header
+        const authHeader = req.header('Authorization');
+        if(!authHeader){
+            return res.status(401).json({message:"No token provided"});
+        }
+        const token = authHeader.replace('Bearer ',''); // get token from header
         if(!token){
-            return res.status(401).json({message:"No token provided"})
+            return res.status(401).json({message:"No token provided"});
         }
 
-        const decoded = jwt.verify(token,process.env.JWT_SECRET); // verify token
+        const secret = process.env.JWT_SECRET || 'coldcraft_default_secret_key';
+        const decoded = jwt.verify(token, secret); // verify token
         const user = await User.findById(decoded.id);
 
         if(!user){

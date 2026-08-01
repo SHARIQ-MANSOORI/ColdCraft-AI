@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();  // make help in router
 const authController = require('../controller/authController') // import file where auth related logic works
 
-router.post('/register',authController.registerUser)  // /register--->authController.js---->register function click
+router.post('/register',authController.register)  // /register--->authController.js---->register function click
 
 router.post('/login',authController.login); // /login----->authController.js---->login function click
 

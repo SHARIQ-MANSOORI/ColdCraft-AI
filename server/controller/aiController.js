@@ -1,9 +1,9 @@
 const axios = require('axios');
 const EmailHistory = require('../models/emailHistory')
-const systemPrompt = require('../prompts/systemPrompt');
+const getSystemPrompt = require('../prompts/systemPrompt');
 
 exports.generateEmail = async (req,res)=>{
-    const {prompt} = req.body;
+    const { prompt, tone = 'Professional', length = 'Medium' } = req.body;
     if(!prompt){
        return res.status(400).json({message:"Prompt is required!"});
     }
@@ -16,10 +16,12 @@ exports.generateEmail = async (req,res)=>{
     }
                                             
     try {                                            
+        const activeSystemPrompt = getSystemPrompt(tone, length);
+
         const response = await axios.post('https://api.groq.com/openai/v1/chat/completions',{
             model: 'llama-3.3-70b-versatile',
             messages:[
-                {role:'system' , content:systemPrompt},
+                {role:'system' , content:activeSystemPrompt},
                 {role:'user' , content:prompt}
             ],
             max_tokens:1000,
@@ -49,12 +51,13 @@ exports.generateEmail = async (req,res)=>{
         const emailHistory = await EmailHistory.create({
             user:req.user._id,
             prompt,
+            tone,
+            length,
             subject,
             emailBody,
             linkedInDM,
             followUpEmail
-
-        })
+        });
 
        return res.status(200).json({
         success: true,

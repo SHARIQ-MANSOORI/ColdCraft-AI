@@ -3,13 +3,14 @@ const User = require("../models/User"); // importing user schema
 const sendEmail = require("../utils/sendEmail")
 const jwt = require("jsonwebtoken");
 
-const  generateAuthToken = (user) => {
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+const generateAuthToken = (user) => {
+    const secret = process.env.JWT_SECRET || 'coldcraft_default_secret_key';
+    const token = jwt.sign({ id: user._id }, secret, { expiresIn: '1h' });
     return token;
   }
 
 
-exports.registerUser = async (req,res,next)=>{
+exports.register = async (req,res,next)=>{
 
      try {
         
@@ -74,15 +75,19 @@ exports.registerUser = async (req,res,next)=>{
 
 
      
-       return res.status(200).json({message:"User Register Successfully ",user:{
-        username:user.username , email:user.email , isVerified:user.isVerified // need change
-       }})
+       return res.status(200).json({
+         message: "User Register Successfully",
+         email: user.email,
+         user: {
+           username: user.username,
+           email: user.email,
+           isVerified: user.isVerified
+         }
+       })
         
      } catch (error) {
         next(error)
-        console.log("Error-authController.js",error)
-        res.status(400).json({message:"User could not register"});
-        
+       
      }
 
 };
