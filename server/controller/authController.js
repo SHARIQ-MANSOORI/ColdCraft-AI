@@ -59,17 +59,15 @@ exports.register = async (req,res,next)=>{
       })
      
       
-      // OTP validation logic
-      try{
-
+      // Send OTP verification email
+      try {
         await sendEmail({
-            to:email,
-            subject:"Otp for ColdCarft-AI",
-            text: `Your otp is ${otp} only valid for 10 minutes of time`
-        })
-
-      }catch(error){
-        console.log("Error-OTP",error)
+            to: email,
+            subject: "Verification OTP - ColdCraft AI",
+            text: `Your OTP verification code is: ${otp}. This code is valid for 10 minutes.`
+        });
+      } catch (emailError) {
+        console.error("Failed to deliver OTP email to user:", emailError.message);
       }
       
 
