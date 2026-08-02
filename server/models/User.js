@@ -27,8 +27,13 @@ const userSchema = new mongoose.Schema({  // user data schema
     },
     otpExpiry:{
         type:Date
+    },
+    gmailAccount: {
+        connected: { type: Boolean, default: false },
+        email: { type: String, default: '' },
+        refreshToken: { type: String, default: '' },
+        connectedAt: { type: Date }
     }
-
 });
 
 

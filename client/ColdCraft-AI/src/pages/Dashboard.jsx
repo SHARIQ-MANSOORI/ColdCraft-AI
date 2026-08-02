@@ -5,7 +5,9 @@ import { ClipboardDocumentIcon, CheckIcon, AdjustmentsHorizontalIcon, PlusIcon, 
 import { useCampaign } from '../context/CampaignContext';
 import DocumentUploader from '../components/DocumentUploader';
 import MissingAttachmentModal from '../components/MissingAttachmentModal';
+import GmailSendModal from '../components/GmailSendModal';
 import { detectMissingAttachment } from '../utils/attachmentDetector';
+import { getGmailStatus, initiateGmailConnect } from '../utils/gmailApi';
 
 const Dashboard = () => {
     const { selectedCampaign, startNewCampaign, addGeneratedCampaign } = useCampaign();
@@ -19,6 +21,23 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [copied, setCopied] = useState('');
+
+    // Gmail API Sending Modal State
+    const [gmailState, setGmailState] = useState({ connected: false, email: '' });
+    const [isGmailModalOpen, setIsGmailModalOpen] = useState(false);
+    const [gmailModalData, setGmailModalData] = useState({ subject: '', body: '' });
+
+    useEffect(() => {
+        const fetchStatus = async () => {
+            try {
+                const data = await getGmailStatus();
+                setGmailState(data);
+            } catch (err) {
+                console.warn('Gmail status check failed:', err.message);
+            }
+        };
+        fetchStatus();
+    }, []);
 
     const tones = [
         { id: 'Professional', label: 'Professional', desc: 'Polished & Standard' },
@@ -100,15 +119,42 @@ const Dashboard = () => {
     };
 
     const handleSendWithGmail = (subjectText, bodyText) => {
-        if (!recipientEmail || !recipientEmail.trim()) {
-            toast.error('Please enter a recipient email address');
-            return;
+        if (gmailState.connected) {
+            // Open connected Gmail API sending modal
+            setGmailModalData({ subject: subjectText || '', body: bodyText || '' });
+            setIsGmailModalOpen(true);
+        } else {
+            // If not connected, prompt OAuth connection or fallback to web compose
+            toast((t) => (
+                <div className="flex flex-col gap-2">
+                    <span className="font-semibold text-xs text-slate-800">Gmail is not connected. Connect for 1-click API sending or open Gmail Web Compose?</span>
+                    <div className="flex gap-2 pt-1">
+                        <button
+                            onClick={() => {
+                                toast.dismiss(t.id);
+                                initiateGmailConnect();
+                            }}
+                            className="bg-blue-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md"
+                        >
+                            Connect Gmail API
+                        </button>
+                        <button
+                            onClick={() => {
+                                toast.dismiss(t.id);
+                                const toParam = encodeURIComponent(recipientEmail.trim() || '');
+                                const subjectParam = encodeURIComponent(subjectText || '');
+                                const bodyParam = encodeURIComponent(bodyText || '');
+                                const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${toParam}&su=${subjectParam}&body=${bodyParam}`;
+                                window.open(gmailUrl, '_blank', 'noopener,noreferrer');
+                            }}
+                            className="bg-slate-200 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md"
+                        >
+                            Gmail Web Compose
+                        </button>
+                    </div>
+                </div>
+            ), { duration: 6000 });
         }
-        const toParam = encodeURIComponent(recipientEmail.trim());
-        const subjectParam = encodeURIComponent(subjectText || '');
-        const bodyParam = encodeURIComponent(bodyText || '');
-        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${toParam}&su=${subjectParam}&body=${bodyParam}`;
-        window.open(gmailUrl, '_blank', 'noopener,noreferrer');
     };
 
     const ResultCard = ({ title, content, type, subjectText, bodyText, isEmailType = false }) => (
@@ -153,6 +199,16 @@ const Dashboard = () => {
                 onUploadClick={() => setShowAttachmentModal(false)}
                 onContinueAnyway={() => executeGeneration(true)}
                 onClose={() => setShowAttachmentModal(false)}
+            />
+
+            {/* Gmail API Send Email Modal */}
+            <GmailSendModal
+                isOpen={isGmailModalOpen}
+                onClose={() => setIsGmailModalOpen(false)}
+                initialTo={recipientEmail}
+                initialSubject={gmailModalData.subject}
+                initialBody={gmailModalData.body}
+                senderEmail={gmailState.email}
             />
 
             {/* Input Section */}

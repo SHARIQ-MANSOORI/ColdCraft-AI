@@ -97,10 +97,11 @@ exports.generateEmail = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error generating email:', error.message);
+        const detailMsg = error.response?.data?.error?.message || error.response?.data?.message || error.message;
+        console.error('Error generating email:', detailMsg);
         return res.status(500).json({
-            message: 'Error generating email',
-            error: error.message
+            message: detailMsg || 'Error generating email',
+            error: detailMsg
         });
     }
 };

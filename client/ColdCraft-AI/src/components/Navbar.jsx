@@ -1,8 +1,9 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeftOnRectangleIcon } from '@heroicons/react/24/outline';
+import GmailStatusBanner from './GmailStatusBanner';
 
-const Navbar = () => {
+const Navbar = ({ onGmailStatusUpdate }) => {
     const { user, logout } = useAuth();
 
     return (
@@ -16,6 +17,7 @@ const Navbar = () => {
             </div>
 
             <div className="flex items-center space-x-4">
+                <GmailStatusBanner onStatusChange={onGmailStatusUpdate} />
                 <button
                     onClick={logout}
                     className="flex items-center text-slate-500 hover:text-red-600 text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 hover:border-red-200 hover:bg-red-50 transition-all"

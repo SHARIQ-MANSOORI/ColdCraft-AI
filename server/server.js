@@ -6,6 +6,7 @@ require('dotenv').config(); // env config first
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const gmailRoutes = require('./routes/gmailRoutes');
 const PORT = process.env.PORT || 3000;
 
 connectDB();  // then connect db 
@@ -20,6 +21,8 @@ app.use(express.json()); // json data parse
 app.use(express.urlencoded({extended:true})); // urlencoded data parse
 app.use('/api/auth',authRoutes);
 app.use('/api/ai',aiRoutes);
+app.use('/api/gmail', gmailRoutes);
+app.use('/api/google', gmailRoutes);
 
 app.use((err,req,res,next)=>{
     console.error(err.stack);
