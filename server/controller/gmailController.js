@@ -23,10 +23,11 @@ exports.connectGmail = async (req, res) => {
  */
 exports.handleOAuthCallback = async (req, res) => {
     const { code, state, error } = req.query;
+    const frontendUrl = process.env.CLIENT_URL || 'https://coldcraft-ai-1.onrender.com';
 
     if (error) {
         console.warn('Google OAuth denied by user:', error);
-        return res.redirect('http://localhost:5173/dashboard?gmail=denied');
+        return res.redirect(`${frontendUrl}/dashboard?gmail=denied`);
     }
 
     if (!code) {
@@ -59,10 +60,10 @@ exports.handleOAuthCallback = async (req, res) => {
         await user.save();
 
         // Redirect back to frontend dashboard with success query parameter
-        return res.redirect('http://localhost:5173/dashboard?gmail=connected');
+        return res.redirect(`${frontendUrl}/dashboard?gmail=connected`);
     } catch (err) {
         console.error('Error during Google OAuth callback:', err.message);
-        return res.redirect('http://localhost:5173/dashboard?gmail=error');
+        return res.redirect(`${frontendUrl}/dashboard?gmail=error`);
     }
 };
 

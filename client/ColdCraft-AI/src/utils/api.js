@@ -6,7 +6,7 @@ import axios from 'axios';
 // the configured axios instance is exported for use in other parts of the application.
 
 const api = axios.create({
-    baseURL:import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+    baseURL: import.meta.env.VITE_API_URL || 'https://coldcraft-ai-coe2.onrender.com/api',
 });
 
 api.interceptors.request.use(
